@@ -1,0 +1,236 @@
+.page-shell {
+  min-height: 100vh;
+  padding: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(124, 58, 237, 0.28), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.18), transparent 20%),
+    linear-gradient(180deg, #090d18 0%, #101827 50%, #090e1a 100%);
+}
+
+.hero-card,
+.status-card,
+.panel,
+.preset-button,
+.script-card,
+.audio-card {
+  background: rgba(10, 15, 28, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(18px);
+}
+
+.hero-card,
+.preset-strip,
+.app-grid {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.hero-card {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 20px;
+}
+
+.hero-copy,
+.status-card,
+.panel,
+.script-card,
+.audio-card,
+.preset-button {
+  border-radius: 28px;
+}
+
+.hero-copy,
+.status-card,
+.panel {
+  padding: 24px;
+}
+
+.eyebrow,
+.status-label {
+  display: inline-flex;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #dbeafe;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-copy h1,
+.output-head h2,
+.script-card h3,
+.audio-card h3 {
+  color: #f8fbff;
+}
+
+.hero-copy h1 {
+  margin: 16px 0 14px;
+  font-size: clamp(2.5rem, 4vw, 4.4rem);
+  line-height: 1.02;
+}
+
+.hero-copy p,
+.status-card p,
+.output-head p,
+.script-card pre,
+.audio-card p,
+label span {
+  color: #c5d2e3;
+}
+
+.status-card {
+  display: grid;
+  gap: 12px;
+}
+
+.status-card strong {
+  color: #fff;
+  font-size: 1.8rem;
+}
+
+.status-card small {
+  color: #fca5a5;
+}
+
+.preset-strip {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.preset-button {
+  padding: 18px;
+  text-align: left;
+  cursor: pointer;
+  color: #e8eefb;
+}
+
+.preset-button strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.preset-button span {
+  color: #b6c3d7;
+  font-size: 0.92rem;
+}
+
+.preset-button.active {
+  border-color: rgba(167, 139, 250, 0.4);
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.26);
+}
+
+.app-grid {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.panel {
+  padding: 24px;
+}
+
+.form-panel,
+.output-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.field-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.field-grid.two-up {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+label {
+  display: grid;
+  gap: 10px;
+}
+
+label span {
+  font-weight: 600;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-sizing: border-box;
+}
+
+.primary-button {
+  border: 0;
+  border-radius: 18px;
+  padding: 15px 18px;
+  background: linear-gradient(135deg, #c4b5fd, #93c5fd 55%, #86efac);
+  color: #09111f;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.output-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 16px;
+}
+
+.output-head h2,
+.script-card h3,
+.audio-card h3 {
+  margin: 0;
+}
+
+.script-card,
+.audio-card {
+  padding: 20px;
+}
+
+.script-card pre {
+  margin: 14px 0 0;
+  white-space: pre-wrap;
+  font-family: 'SFMono-Regular', ui-monospace, monospace;
+  line-height: 1.7;
+}
+
+.audio-player {
+  width: 100%;
+  margin-top: 14px;
+}
+
+@media (max-width: 920px) {
+  .page-shell {
+    padding: 16px;
+  }
+
+  .hero-card,
+  .preset-strip,
+  .app-grid,
+  .field-grid.two-up {
+    grid-template-columns: 1fr;
+  }
+
+  .output-head {
+    flex-direction: column;
+    align-items: start;
+  }
+}
