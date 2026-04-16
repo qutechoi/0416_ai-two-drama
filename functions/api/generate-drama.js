@@ -121,6 +121,11 @@ Requirements:
       script,
       audioBase64: normalized.audioBase64,
       mimeType: normalized.mimeType,
+      debug: {
+        originalMimeType: mimeType || null,
+        normalizedMimeType: normalized.mimeType,
+        audioBase64Length: normalized.audioBase64.length,
+      },
     })
   } catch (error) {
     return json(

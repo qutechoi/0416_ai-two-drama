@@ -63,6 +63,7 @@ function App() {
   const [script, setScript] = useState('')
   const [audioUrl, setAudioUrl] = useState('')
   const [audioMimeType, setAudioMimeType] = useState('audio/wav')
+  const [audioInfo, setAudioInfo] = useState(null)
   const [error, setError] = useState('')
 
   const applyPreset = (preset) => {
@@ -87,6 +88,7 @@ function App() {
     event.preventDefault()
     setLoading(true)
     setError('')
+    setAudioInfo(null)
     setStatus('두 인물의 대사를 만들고 음성을 합성하는 중이야...')
 
     if (audioUrl) {
@@ -110,13 +112,35 @@ function App() {
 
       setScript(data.script)
 
-      const binary = Uint8Array.from(atob(data.audioBase64), (char) => char.charCodeAt(0))
+      if (!data.audioBase64) {
+        throw new Error('오디오 데이터가 비어 있어.')
+      }
+
+      let binary
+      try {
+        binary = Uint8Array.from(atob(data.audioBase64), (char) => char.charCodeAt(0))
+      } catch {
+        throw new Error('오디오 base64 디코딩에 실패했어.')
+      }
+
+      if (!binary.length) {
+        throw new Error('오디오 바이트 길이가 0이야.')
+      }
+
       const resolvedMimeType = data.mimeType || 'audio/wav'
       const blob = new Blob([binary], { type: resolvedMimeType })
       const url = URL.createObjectURL(blob)
+
       setAudioMimeType(resolvedMimeType)
       setAudioUrl(url)
-      setStatus('완성됐어. 바로 재생해봐.')
+      setAudioInfo({
+        mimeType: resolvedMimeType,
+        byteLength: binary.length,
+        originalMimeType: data.debug?.originalMimeType || null,
+        normalizedMimeType: data.debug?.normalizedMimeType || resolvedMimeType,
+        audioBase64Length: data.debug?.audioBase64Length || data.audioBase64.length,
+      })
+      setStatus('완성됐어. 재생이 안 되면 아래 다운로드 버튼으로 파일부터 확인해봐.')
 
       window.setTimeout(() => {
         audioRef.current?.load()
@@ -243,15 +267,43 @@ function App() {
 
           <article className="audio-card">
             <h3>오디오</h3>
-            <audio ref={audioRef} controls className="audio-player" src={audioUrl || undefined}>
-              {audioUrl && <source src={audioUrl} type={audioMimeType} />}
-            </audio>
+            <audio ref={audioRef} controls className="audio-player" src={audioUrl || undefined} />
+
+            {audioUrl ? (
+              <div className="audio-actions">
+                <a className="download-button" href={audioUrl} download={`ai-two-drama.${extensionFromMime(audioMimeType)}`}>
+                  오디오 파일 다운로드
+                </a>
+              </div>
+            ) : (
+              <p>아직 오디오 파일이 없어.</p>
+            )}
+
+            {audioInfo && (
+              <div className="debug-card">
+                <strong>오디오 디버그 정보</strong>
+                <ul>
+                  <li>MIME: {audioInfo.mimeType}</li>
+                  <li>원본 MIME: {audioInfo.originalMimeType || '없음'}</li>
+                  <li>정규화 MIME: {audioInfo.normalizedMimeType}</li>
+                  <li>바이트 길이: {audioInfo.byteLength}</li>
+                  <li>base64 길이: {audioInfo.audioBase64Length}</li>
+                </ul>
+              </div>
+            )}
+
             <p>Cloudflare Pages Function이 Gemini API 키를 숨기고 대신 호출해.</p>
           </article>
         </section>
       </section>
     </main>
   )
+}
+
+function extensionFromMime(mimeType) {
+  if (mimeType.includes('mpeg')) return 'mp3'
+  if (mimeType.includes('ogg')) return 'ogg'
+  return 'wav'
 }
 
 export default App
