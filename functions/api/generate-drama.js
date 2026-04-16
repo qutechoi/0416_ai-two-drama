@@ -53,12 +53,13 @@ async function handleDramaRequest(ai, body) {
   const speakerAlias1 = 'Speaker 1'
   const speakerAlias2 = 'Speaker 2'
 
-  const scriptPrompt = `## Title\n${title}\n\n## Scene\n${scene}\n\n## Direction\n${direction}\n\n## Cast\n- ${speakerAlias1}: ${speaker1}\n- ${speakerAlias2}: ${speaker2}\n\n## Request\n${prompt}\n\nWrite a short Korean two-speaker drama.
+  const scriptPrompt = `## Title\n${title}\n\n## Scene\n${scene}\n\n## Direction\n${direction}\n\n## Cast\n- ${speaker1}\n- ${speaker2}\n\n## Request\n${prompt}\n\nWrite a short Korean two-speaker drama.
 Requirements:
 - Exactly 8 to 10 lines total
 - Alternate speakers naturally
-- Use ONLY these exact line prefixes: ${speakerAlias1}: ... / ${speakerAlias2}: ...
+- Use ONLY these exact line prefixes: ${speaker1}: ... / ${speaker2}: ...
 - No narration outside dialogue
+- Make the two voices feel clearly distinct in attitude and wording
 - Keep each line short enough to sound natural in speech`
 
   const scriptResponse = await ai.models.generateContent({
@@ -75,18 +76,18 @@ Requirements:
     return json({ error: '대본 생성에 실패했어. 다시 시도해줘.' }, 500)
   }
 
-  const script = normalizeScript(rawScript, speakerAlias1, speakerAlias2)
-  const dialogueLines = script
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
+  const displayScript = normalizeDisplayScript(rawScript, speaker1, speaker2)
+  const ttsScript = replaceSpeakerNamesWithAliases(displayScript, {
+    [speaker1]: speakerAlias1,
+    [speaker2]: speakerAlias2,
+  })
 
   const transcriptText = [
     `Scene: ${scene}`,
     `Direction: ${direction}`,
     `Use ${speakerAlias1} as ${speaker1} and ${speakerAlias2} as ${speaker2}.`,
     '',
-    ...dialogueLines,
+    ...ttsScript.split('\n').map((line) => line.trim()).filter(Boolean),
   ].join('\n')
 
   const normalized = await synthesizeAudio(ai, {
@@ -99,10 +100,7 @@ Requirements:
   })
 
   return json({
-    script: presentScript(script, {
-      [speakerAlias1]: speaker1,
-      [speakerAlias2]: speaker2,
-    }),
+    script: displayScript,
     audioBase64: normalized.audioBase64,
     mimeType: normalized.mimeType,
   })
@@ -113,9 +111,7 @@ async function handlePreviewRequest(ai, body) {
 
   const normalized = await synthesizeAudio(ai, {
     text: text || `${speakerName || '화자'}입니다. 안녕하세요.`,
-    speakers: [
-      { speaker: 'Speaker 1', voiceName },
-    ],
+    speakers: [{ speaker: 'Speaker 1', voiceName }],
     multiSpeaker: false,
   })
 
@@ -155,11 +151,7 @@ async function synthesizeAudio(ai, { text, speakers, multiSpeaker }) {
     contents: [
       {
         role: 'user',
-        parts: [
-          {
-            text,
-          },
-        ],
+        parts: [{ text }],
       },
     ],
   })
@@ -185,32 +177,32 @@ async function synthesizeAudio(ai, { text, speakers, multiSpeaker }) {
   return normalizeAudioPayload(audioBase64, mimeType)
 }
 
-function normalizeScript(script, speakerAlias1, speakerAlias2) {
+function normalizeDisplayScript(script, speaker1, speaker2) {
   return script
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line, index) => {
-      if (line.startsWith(`${speakerAlias1}:`) || line.startsWith(`${speakerAlias2}:`)) {
+      if (line.startsWith(`${speaker1}:`) || line.startsWith(`${speaker2}:`)) {
         return line
       }
 
-      const alias = index % 2 === 0 ? speakerAlias1 : speakerAlias2
+      const speakerName = index % 2 === 0 ? speaker1 : speaker2
       const cleaned = line.replace(/^[^:]+:\s*/, '')
-      return `${alias}: ${cleaned}`
+      return `${speakerName}: ${cleaned}`
     })
     .join('\n')
 }
 
-function presentScript(script, aliasMap) {
+function replaceSpeakerNamesWithAliases(script, aliasMap) {
   return script
     .split('\n')
     .map((line) => {
       const trimmed = line.trim()
       if (!trimmed) return trimmed
       const [speaker, ...rest] = trimmed.split(':')
-      const mapped = aliasMap[speaker.trim()] || speaker.trim()
-      return `${mapped}: ${rest.join(':').trim()}`
+      const alias = aliasMap[speaker.trim()] || speaker.trim()
+      return `${alias}: ${rest.join(':').trim()}`
     })
     .join('\n')
 }
