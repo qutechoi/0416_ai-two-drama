@@ -44,6 +44,7 @@ const voiceOptions = [
 
 function App() {
   const audioRef = useRef(null)
+  const previewAudioRef = useRef(null)
   const [presetId, setPresetId] = useState(presets[0].id)
   const selectedPreset = useMemo(() => presets.find((preset) => preset.id === presetId) || presets[0], [presetId])
 
@@ -60,9 +61,11 @@ function App() {
 
   const [status, setStatus] = useState('아직 장면을 생성하지 않았어.')
   const [loading, setLoading] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState('')
   const [script, setScript] = useState('')
   const [audioUrl, setAudioUrl] = useState('')
   const [audioMimeType, setAudioMimeType] = useState('audio/wav')
+  const [previewAudioUrl, setPreviewAudioUrl] = useState('')
   const [error, setError] = useState('')
 
   const applyPreset = (preset) => {
@@ -81,6 +84,59 @@ function App() {
 
   const handleChange = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const decodeAudioToBlobUrl = (audioBase64, mimeType = 'audio/wav') => {
+    const binary = Uint8Array.from(atob(audioBase64), (char) => char.charCodeAt(0))
+    const blob = new Blob([binary], { type: mimeType })
+    return URL.createObjectURL(blob)
+  }
+
+  const handlePreview = async (speakerKey) => {
+    const isSpeakerOne = speakerKey === 'speaker1'
+    const speakerName = isSpeakerOne ? form.speaker1 : form.speaker2
+    const voiceName = isSpeakerOne ? form.speaker1Voice : form.speaker2Voice
+
+    setPreviewLoading(speakerKey)
+    setError('')
+
+    if (previewAudioUrl) {
+      URL.revokeObjectURL(previewAudioUrl)
+      setPreviewAudioUrl('')
+    }
+
+    try {
+      const response = await fetch('/api/generate-drama', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'preview',
+          speakerName,
+          voiceName,
+          text: `${speakerName || '화자'}입니다. 안녕하세요.`,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || '음색 미리듣기에 실패했어.')
+      }
+
+      const url = decodeAudioToBlobUrl(data.audioBase64, data.mimeType || 'audio/wav')
+      setPreviewAudioUrl(url)
+
+      window.setTimeout(() => {
+        if (previewAudioRef.current) {
+          previewAudioRef.current.src = url
+          previewAudioRef.current.play().catch(() => {})
+        }
+      }, 0)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setPreviewLoading('')
+    }
   }
 
   const handleSubmit = async (event) => {
@@ -114,20 +170,8 @@ function App() {
         throw new Error('오디오 데이터가 비어 있어.')
       }
 
-      let binary
-      try {
-        binary = Uint8Array.from(atob(data.audioBase64), (char) => char.charCodeAt(0))
-      } catch {
-        throw new Error('오디오 base64 디코딩에 실패했어.')
-      }
-
-      if (!binary.length) {
-        throw new Error('오디오 바이트 길이가 0이야.')
-      }
-
       const resolvedMimeType = data.mimeType || 'audio/wav'
-      const blob = new Blob([binary], { type: resolvedMimeType })
-      const url = URL.createObjectURL(blob)
+      const url = decodeAudioToBlobUrl(data.audioBase64, resolvedMimeType)
 
       setAudioMimeType(resolvedMimeType)
       setAudioUrl(url)
@@ -214,27 +258,50 @@ function App() {
             </div>
 
             <div className="field-grid two-up">
-              <label>
-                <span>화자 1 음색</span>
-                <select value={form.speaker1Voice} onChange={(event) => handleChange('speaker1Voice', event.target.value)}>
-                  {voiceOptions.map((voice) => (
-                    <option key={voice} value={voice}>
-                      {voice}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>화자 2 음색</span>
-                <select value={form.speaker2Voice} onChange={(event) => handleChange('speaker2Voice', event.target.value)}>
-                  {voiceOptions.map((voice) => (
-                    <option key={voice} value={voice}>
-                      {voice}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="voice-select-group">
+                <label>
+                  <span>화자 1 음색</span>
+                  <select value={form.speaker1Voice} onChange={(event) => handleChange('speaker1Voice', event.target.value)}>
+                    {voiceOptions.map((voice) => (
+                      <option key={voice} value={voice}>
+                        {voice}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="preview-button"
+                  onClick={() => handlePreview('speaker1')}
+                  disabled={previewLoading === 'speaker1'}
+                >
+                  {previewLoading === 'speaker1' ? '재생 중...' : '화자 1 미리듣기'}
+                </button>
+              </div>
+
+              <div className="voice-select-group">
+                <label>
+                  <span>화자 2 음색</span>
+                  <select value={form.speaker2Voice} onChange={(event) => handleChange('speaker2Voice', event.target.value)}>
+                    {voiceOptions.map((voice) => (
+                      <option key={voice} value={voice}>
+                        {voice}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="preview-button"
+                  onClick={() => handlePreview('speaker2')}
+                  disabled={previewLoading === 'speaker2'}
+                >
+                  {previewLoading === 'speaker2' ? '재생 중...' : '화자 2 미리듣기'}
+                </button>
+              </div>
             </div>
+
+            <audio ref={previewAudioRef} className="sr-only" />
           </section>
 
           <label>

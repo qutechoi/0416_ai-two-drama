@@ -16,16 +16,6 @@ export async function onRequestOptions() {
 export async function onRequestPost(context) {
   try {
     const body = await context.request.json()
-    const {
-      title,
-      scene,
-      speaker1,
-      speaker2,
-      speaker1Voice,
-      speaker2Voice,
-      direction,
-      prompt,
-    } = body
 
     if (!context.env.GEMINI_API_KEY) {
       return json({ error: 'GEMINI_API_KEY가 설정되지 않았어.' }, 500)
@@ -33,100 +23,11 @@ export async function onRequestPost(context) {
 
     const ai = new GoogleGenAI({ apiKey: context.env.GEMINI_API_KEY })
 
-    const scriptPrompt = `## Title\n${title}\n\n## Scene\n${scene}\n\n## Direction\n${direction}\n\n## Request\n${prompt}\n\nWrite a short Korean two-speaker drama.
-Requirements:
-- Exactly 8 to 10 lines total
-- Alternate speakers naturally
-- Use this exact speaker format per line: ${speaker1}: ... / ${speaker2}: ...
-- No narration outside dialogue
-- Keep each line short enough to sound natural in speech`
-
-    const scriptResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: scriptPrompt,
-      config: {
-        temperature: 0.9,
-      },
-    })
-
-    const script = (scriptResponse.text || '').trim()
-
-    if (!script) {
-      return json({ error: '대본 생성에 실패했어. 다시 시도해줘.' }, 500)
+    if (body.mode === 'preview') {
+      return handlePreviewRequest(ai, body)
     }
 
-    const audioPrompt = `## Scene\n${scene}\n\n## Direction\n${direction}\n\n## Dialogue\n${script}`
-
-    const response = await ai.models.generateContentStream({
-      model: 'gemini-3.1-flash-tts-preview',
-      config: {
-        temperature: 1,
-        responseModalities: ['audio'],
-        speechConfig: {
-          multiSpeakerVoiceConfig: {
-            speakerVoiceConfigs: [
-              {
-                speaker: speaker1,
-                voiceConfig: {
-                  prebuiltVoiceConfig: {
-                    voiceName: speaker1Voice,
-                  },
-                },
-              },
-              {
-                speaker: speaker2,
-                voiceConfig: {
-                  prebuiltVoiceConfig: {
-                    voiceName: speaker2Voice,
-                  },
-                },
-              },
-            ],
-          },
-        },
-      },
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: audioPrompt,
-            },
-          ],
-        },
-      ],
-    })
-
-    let audioBase64 = ''
-    let mimeType = ''
-
-    for await (const chunk of response) {
-      const parts = chunk?.candidates?.[0]?.content?.parts || []
-
-      for (const part of parts) {
-        if (part.inlineData?.data) {
-          audioBase64 += part.inlineData.data
-          mimeType = part.inlineData.mimeType || mimeType
-        }
-      }
-    }
-
-    if (!audioBase64) {
-      return json({ error: '오디오 생성에 실패했어. 잠시 후 다시 시도해줘.' }, 500)
-    }
-
-    const normalized = normalizeAudioPayload(audioBase64, mimeType)
-
-    return json({
-      script,
-      audioBase64: normalized.audioBase64,
-      mimeType: normalized.mimeType,
-      debug: {
-        originalMimeType: mimeType || null,
-        normalizedMimeType: normalized.mimeType,
-        audioBase64Length: normalized.audioBase64.length,
-      },
-    })
+    return handleDramaRequest(ai, body)
   } catch (error) {
     return json(
       {
@@ -135,6 +36,135 @@ Requirements:
       500,
     )
   }
+}
+
+async function handleDramaRequest(ai, body) {
+  const {
+    title,
+    scene,
+    speaker1,
+    speaker2,
+    speaker1Voice,
+    speaker2Voice,
+    direction,
+    prompt,
+  } = body
+
+  const scriptPrompt = `## Title\n${title}\n\n## Scene\n${scene}\n\n## Direction\n${direction}\n\n## Request\n${prompt}\n\nWrite a short Korean two-speaker drama.
+Requirements:
+- Exactly 8 to 10 lines total
+- Alternate speakers naturally
+- Use this exact speaker format per line: ${speaker1}: ... / ${speaker2}: ...
+- No narration outside dialogue
+- Keep each line short enough to sound natural in speech`
+
+  const scriptResponse = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: scriptPrompt,
+    config: {
+      temperature: 0.9,
+    },
+  })
+
+  const script = (scriptResponse.text || '').trim()
+
+  if (!script) {
+    return json({ error: '대본 생성에 실패했어. 다시 시도해줘.' }, 500)
+  }
+
+  const audioPrompt = `## Scene\n${scene}\n\n## Direction\n${direction}\n\n## Dialogue\n${script}`
+
+  const normalized = await synthesizeAudio(ai, {
+    text: audioPrompt,
+    speakers: [
+      { speaker: speaker1, voiceName: speaker1Voice },
+      { speaker: speaker2, voiceName: speaker2Voice },
+    ],
+    multiSpeaker: true,
+  })
+
+  return json({
+    script,
+    audioBase64: normalized.audioBase64,
+    mimeType: normalized.mimeType,
+  })
+}
+
+async function handlePreviewRequest(ai, body) {
+  const { speakerName, voiceName, text } = body
+
+  const normalized = await synthesizeAudio(ai, {
+    text: text || `${speakerName || '화자'}입니다. 안녕하세요.` ,
+    speakers: [
+      { speaker: speakerName || 'Speaker 1', voiceName },
+    ],
+    multiSpeaker: false,
+  })
+
+  return json({
+    audioBase64: normalized.audioBase64,
+    mimeType: normalized.mimeType,
+  })
+}
+
+async function synthesizeAudio(ai, { text, speakers, multiSpeaker }) {
+  const response = await ai.models.generateContentStream({
+    model: 'gemini-3.1-flash-tts-preview',
+    config: {
+      temperature: 1,
+      responseModalities: ['audio'],
+      speechConfig: multiSpeaker
+        ? {
+            multiSpeakerVoiceConfig: {
+              speakerVoiceConfigs: speakers.map(({ speaker, voiceName }) => ({
+                speaker,
+                voiceConfig: {
+                  prebuiltVoiceConfig: {
+                    voiceName,
+                  },
+                },
+              })),
+            },
+          }
+        : {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: speakers[0].voiceName,
+              },
+            },
+          },
+    },
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            text,
+          },
+        ],
+      },
+    ],
+  })
+
+  let audioBase64 = ''
+  let mimeType = ''
+
+  for await (const chunk of response) {
+    const parts = chunk?.candidates?.[0]?.content?.parts || []
+
+    for (const part of parts) {
+      if (part.inlineData?.data) {
+        audioBase64 += part.inlineData.data
+        mimeType = part.inlineData.mimeType || mimeType
+      }
+    }
+  }
+
+  if (!audioBase64) {
+    throw new Error('오디오 생성에 실패했어. 잠시 후 다시 시도해줘.')
+  }
+
+  return normalizeAudioPayload(audioBase64, mimeType)
 }
 
 function normalizeAudioPayload(audioBase64, mimeType) {
@@ -192,7 +222,7 @@ function parseMimeType(mimeType) {
     bitsPerSample: 16,
   }
 
-  if (format && format.startsWith('L')) {
+  if (format && format.toUpperCase().startsWith('L')) {
     const bits = Number.parseInt(format.slice(1), 10)
     if (!Number.isNaN(bits)) {
       options.bitsPerSample = bits
