@@ -63,7 +63,6 @@ function App() {
   const [script, setScript] = useState('')
   const [audioUrl, setAudioUrl] = useState('')
   const [audioMimeType, setAudioMimeType] = useState('audio/wav')
-  const [audioInfo, setAudioInfo] = useState(null)
   const [error, setError] = useState('')
 
   const applyPreset = (preset) => {
@@ -88,7 +87,6 @@ function App() {
     event.preventDefault()
     setLoading(true)
     setError('')
-    setAudioInfo(null)
     setStatus('두 인물의 대사를 만들고 음성을 합성하는 중이야...')
 
     if (audioUrl) {
@@ -133,14 +131,7 @@ function App() {
 
       setAudioMimeType(resolvedMimeType)
       setAudioUrl(url)
-      setAudioInfo({
-        mimeType: resolvedMimeType,
-        byteLength: binary.length,
-        originalMimeType: data.debug?.originalMimeType || null,
-        normalizedMimeType: data.debug?.normalizedMimeType || resolvedMimeType,
-        audioBase64Length: data.debug?.audioBase64Length || data.audioBase64.length,
-      })
-      setStatus('완성됐어. 재생이 안 되면 아래 다운로드 버튼으로 파일부터 확인해봐.')
+      setStatus('완성됐어. 바로 들어보거나 저장해봐.')
 
       window.setTimeout(() => {
         audioRef.current?.load()
@@ -216,28 +207,35 @@ function App() {
             </label>
           </div>
 
-          <div className="field-grid two-up">
-            <label>
-              <span>화자 1 음색</span>
-              <select value={form.speaker1Voice} onChange={(event) => handleChange('speaker1Voice', event.target.value)}>
-                {voiceOptions.map((voice) => (
-                  <option key={voice} value={voice}>
-                    {voice}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>화자 2 음색</span>
-              <select value={form.speaker2Voice} onChange={(event) => handleChange('speaker2Voice', event.target.value)}>
-                {voiceOptions.map((voice) => (
-                  <option key={voice} value={voice}>
-                    {voice}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          <section className="voice-card">
+            <div className="voice-card-head">
+              <h3>화자 음색 선택</h3>
+              <p>각 캐릭터에 어울리는 목소리를 골라줘.</p>
+            </div>
+
+            <div className="field-grid two-up">
+              <label>
+                <span>화자 1 음색</span>
+                <select value={form.speaker1Voice} onChange={(event) => handleChange('speaker1Voice', event.target.value)}>
+                  {voiceOptions.map((voice) => (
+                    <option key={voice} value={voice}>
+                      {voice}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>화자 2 음색</span>
+                <select value={form.speaker2Voice} onChange={(event) => handleChange('speaker2Voice', event.target.value)}>
+                  {voiceOptions.map((voice) => (
+                    <option key={voice} value={voice}>
+                      {voice}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </section>
 
           <label>
             <span>대사 요청</span>
@@ -277,19 +275,6 @@ function App() {
               </div>
             ) : (
               <p>아직 오디오 파일이 없어.</p>
-            )}
-
-            {audioInfo && (
-              <div className="debug-card">
-                <strong>오디오 디버그 정보</strong>
-                <ul>
-                  <li>MIME: {audioInfo.mimeType}</li>
-                  <li>원본 MIME: {audioInfo.originalMimeType || '없음'}</li>
-                  <li>정규화 MIME: {audioInfo.normalizedMimeType}</li>
-                  <li>바이트 길이: {audioInfo.byteLength}</li>
-                  <li>base64 길이: {audioInfo.audioBase64Length}</li>
-                </ul>
-              </div>
             )}
 
             <p>Cloudflare Pages Function이 Gemini API 키를 숨기고 대신 호출해.</p>

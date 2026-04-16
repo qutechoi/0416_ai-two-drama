@@ -231,6 +231,27 @@ textarea::placeholder {
   line-height: 1.7;
 }
 
+.voice-card {
+  padding: 18px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(252, 231, 243, 0.82), rgba(237, 233, 254, 0.78));
+  border: 1px solid rgba(168, 85, 247, 0.14);
+}
+
+.voice-card-head {
+  margin-bottom: 12px;
+}
+
+.voice-card-head h3 {
+  margin: 0 0 6px;
+  color: #7c3aed;
+}
+
+.voice-card-head p {
+  margin: 0;
+  color: #7b6d9b;
+}
+
 .audio-player {
   width: 100%;
   margin-top: 14px;
