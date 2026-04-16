@@ -62,6 +62,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [script, setScript] = useState('')
   const [audioUrl, setAudioUrl] = useState('')
+  const [audioMimeType, setAudioMimeType] = useState('audio/wav')
   const [error, setError] = useState('')
 
   const applyPreset = (preset) => {
@@ -91,6 +92,7 @@ function App() {
     if (audioUrl) {
       URL.revokeObjectURL(audioUrl)
       setAudioUrl('')
+      setAudioMimeType('audio/wav')
     }
 
     try {
@@ -109,8 +111,10 @@ function App() {
       setScript(data.script)
 
       const binary = Uint8Array.from(atob(data.audioBase64), (char) => char.charCodeAt(0))
-      const blob = new Blob([binary], { type: data.mimeType || 'audio/wav' })
+      const resolvedMimeType = data.mimeType || 'audio/wav'
+      const blob = new Blob([binary], { type: resolvedMimeType })
       const url = URL.createObjectURL(blob)
+      setAudioMimeType(resolvedMimeType)
       setAudioUrl(url)
       setStatus('완성됐어. 바로 재생해봐.')
 
@@ -239,8 +243,8 @@ function App() {
 
           <article className="audio-card">
             <h3>오디오</h3>
-            <audio ref={audioRef} controls className="audio-player">
-              {audioUrl && <source src={audioUrl} type="audio/wav" />}
+            <audio ref={audioRef} controls className="audio-player" src={audioUrl || undefined}>
+              {audioUrl && <source src={audioUrl} type={audioMimeType} />}
             </audio>
             <p>Cloudflare Pages Function이 Gemini API 키를 숨기고 대신 호출해.</p>
           </article>
