@@ -145,19 +145,21 @@ function normalizeAudioPayload(audioBase64, mimeType) {
     }
   }
 
-  if (mimeType.includes('mpeg')) {
+  const normalizedMime = mimeType.toLowerCase()
+
+  if (normalizedMime.includes('mpeg')) {
     return { audioBase64, mimeType: 'audio/mpeg' }
   }
 
-  if (mimeType.includes('ogg')) {
+  if (normalizedMime.includes('ogg')) {
     return { audioBase64, mimeType: 'audio/ogg' }
   }
 
-  if (mimeType.includes('wav') || mimeType.includes('wave')) {
+  if (normalizedMime.includes('wav') || normalizedMime.includes('wave')) {
     return { audioBase64, mimeType: 'audio/wav' }
   }
 
-  if (mimeType.includes('pcm') || mimeType.includes('L16') || mimeType.includes('audio/raw')) {
+  if (normalizedMime.includes('pcm') || normalizedMime.includes('l16') || normalizedMime.includes('audio/raw')) {
     return {
       audioBase64: convertRawToWavBase64(audioBase64, mimeType),
       mimeType: 'audio/wav',
