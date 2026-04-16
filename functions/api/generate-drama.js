@@ -50,11 +50,14 @@ async function handleDramaRequest(ai, body) {
     prompt,
   } = body
 
-  const scriptPrompt = `## Title\n${title}\n\n## Scene\n${scene}\n\n## Direction\n${direction}\n\n## Request\n${prompt}\n\nWrite a short Korean two-speaker drama.
+  const speakerAlias1 = 'Speaker 1'
+  const speakerAlias2 = 'Speaker 2'
+
+  const scriptPrompt = `## Title\n${title}\n\n## Scene\n${scene}\n\n## Direction\n${direction}\n\n## Cast\n- ${speakerAlias1}: ${speaker1}\n- ${speakerAlias2}: ${speaker2}\n\n## Request\n${prompt}\n\nWrite a short Korean two-speaker drama.
 Requirements:
 - Exactly 8 to 10 lines total
 - Alternate speakers naturally
-- Use this exact speaker format per line: ${speaker1}: ... / ${speaker2}: ...
+- Use ONLY these exact line prefixes: ${speakerAlias1}: ... / ${speakerAlias2}: ...
 - No narration outside dialogue
 - Keep each line short enough to sound natural in speech`
 
@@ -66,25 +69,40 @@ Requirements:
     },
   })
 
-  const script = (scriptResponse.text || '').trim()
+  const rawScript = (scriptResponse.text || '').trim()
 
-  if (!script) {
+  if (!rawScript) {
     return json({ error: '대본 생성에 실패했어. 다시 시도해줘.' }, 500)
   }
 
-  const audioPrompt = `## Scene\n${scene}\n\n## Direction\n${direction}\n\n## Dialogue\n${script}`
+  const script = normalizeScript(rawScript, speakerAlias1, speakerAlias2)
+  const dialogueLines = script
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  const transcriptText = [
+    `Scene: ${scene}`,
+    `Direction: ${direction}`,
+    `Use ${speakerAlias1} as ${speaker1} and ${speakerAlias2} as ${speaker2}.`,
+    '',
+    ...dialogueLines,
+  ].join('\n')
 
   const normalized = await synthesizeAudio(ai, {
-    text: audioPrompt,
+    text: transcriptText,
     speakers: [
-      { speaker: speaker1, voiceName: speaker1Voice },
-      { speaker: speaker2, voiceName: speaker2Voice },
+      { speaker: speakerAlias1, voiceName: speaker1Voice },
+      { speaker: speakerAlias2, voiceName: speaker2Voice },
     ],
     multiSpeaker: true,
   })
 
   return json({
-    script,
+    script: presentScript(script, {
+      [speakerAlias1]: speaker1,
+      [speakerAlias2]: speaker2,
+    }),
     audioBase64: normalized.audioBase64,
     mimeType: normalized.mimeType,
   })
@@ -94,9 +112,9 @@ async function handlePreviewRequest(ai, body) {
   const { speakerName, voiceName, text } = body
 
   const normalized = await synthesizeAudio(ai, {
-    text: text || `${speakerName || '화자'}입니다. 안녕하세요.` ,
+    text: text || `${speakerName || '화자'}입니다. 안녕하세요.`,
     speakers: [
-      { speaker: speakerName || 'Speaker 1', voiceName },
+      { speaker: 'Speaker 1', voiceName },
     ],
     multiSpeaker: false,
   })
@@ -165,6 +183,36 @@ async function synthesizeAudio(ai, { text, speakers, multiSpeaker }) {
   }
 
   return normalizeAudioPayload(audioBase64, mimeType)
+}
+
+function normalizeScript(script, speakerAlias1, speakerAlias2) {
+  return script
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      if (line.startsWith(`${speakerAlias1}:`) || line.startsWith(`${speakerAlias2}:`)) {
+        return line
+      }
+
+      const alias = index % 2 === 0 ? speakerAlias1 : speakerAlias2
+      const cleaned = line.replace(/^[^:]+:\s*/, '')
+      return `${alias}: ${cleaned}`
+    })
+    .join('\n')
+}
+
+function presentScript(script, aliasMap) {
+  return script
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim()
+      if (!trimmed) return trimmed
+      const [speaker, ...rest] = trimmed.split(':')
+      const mapped = aliasMap[speaker.trim()] || speaker.trim()
+      return `${mapped}: ${rest.join(':').trim()}`
+    })
+    .join('\n')
 }
 
 function normalizeAudioPayload(audioBase64, mimeType) {
